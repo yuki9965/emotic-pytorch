@@ -95,9 +95,10 @@ def train_epoch(epoch, args, model, data_loader, optimizer):
         disc_pred = model(body, image)
 
         # Initialize Weighted Loss Functions
-        disc_loss = nn.MultiLabelMarginLoss()
+        #disc_loss = nn.MultiLabelMarginLoss()
         # cont_loss = nn.KLDivLoss()
-        # disc_loss = emotic.DiscreteLoss()
+        #disc_loss = emotic.DiscreteLoss()
+        disc_loss = nn.MultiLabelSoftMarginLoss()
 
         # Compute Test Loss
         d_loss = disc_loss(disc_pred, disc)

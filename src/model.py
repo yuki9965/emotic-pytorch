@@ -59,23 +59,59 @@ class basicEncodingStream(nn.Module):
                         self.relu(True),
                     )
 
-class BodyStream(basicEncodingStream):
+class BodyStream(torchvision.models.Inception3):
     def __init__(self):
         super(BodyStream, self).__init__()
+        self.average_pool_layer = F.adaptive_avg_pool2d
 
-    def forward(self, body):
+    def forward(self, x):
         '''
-        body:  B, 3, 256, 256
+        body:  B, 3, 299, 299
         '''
         #batch_size = body.size(0)
-        x = self.layer1(body)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
-        x = self.layer5(x)
-        x = self.average_pool_layer(x, (1,1))
+        # N x 3 x 299 x 299
+        x = self.Conv2d_1a_3x3(x)
+        # N x 32 x 149 x 149
+        x = self.Conv2d_2a_3x3(x)
+        # N x 32 x 147 x 147
+        x = self.Conv2d_2b_3x3(x)
+        # N x 64 x 147 x 147
+        x = F.max_pool2d(x, kernel_size=3, stride=2)
+        # N x 64 x 73 x 73
+        x = self.Conv2d_3b_1x1(x)
+        # N x 80 x 73 x 73
+        x = self.Conv2d_4a_3x3(x)
+        # N x 192 x 71 x 71
+        x = F.max_pool2d(x, kernel_size=3, stride=2)
+        # N x 192 x 35 x 35
+        x = self.Mixed_5b(x)
+        # N x 256 x 35 x 35
+        x = self.Mixed_5c(x)
+        # N x 288 x 35 x 35
+        x = self.Mixed_5d(x)
+        # N x 288 x 35 x 35
+        x = self.Mixed_6a(x)
+        # N x 768 x 17 x 17
+        x = self.Mixed_6b(x)
+        # N x 768 x 17 x 17
+        x = self.Mixed_6c(x)
+        # N x 768 x 17 x 17
+        x = self.Mixed_6d(x)
+        # N x 768 x 17 x 17
+        x = self.Mixed_6e(x)
+        # N x 768 x 17 x 17
+        x = self.Mixed_7a(x)
+        # N x 1280 x 8 x 8
+        x = self.Mixed_7b(x)
+        # N x 2048 x 8 x 8
+        x = self.Mixed_7c(x)
+        # N x 2048 x 8 x 8
+        # Adaptive average pooling
+        #x = self.average_pool_layer(x, (1, 1))
+        # N x 2048 x 1 x 1
+        #x = F.dropout(x, training=self.training)
 
-        return x    # B, 256, 6, 6
+        return x    
 
 class _NonLocalBlock(nn.Module):
     def __init__(self, in_channels, inter_channels=None, dimension=3, sub_sample=True, bn_layer=True):
@@ -175,25 +211,60 @@ class _NonLocalBlock(nn.Module):
             return z, f_div_C
         return z   
 
-class ContextStream(basicEncodingStream):
+class ContextStream(torchvision.models.Inception3):
     def __init__(self):
         super(ContextStream, self).__init__()
-        
+        self.average_pool_layer = F.adaptive_avg_pool2d
     
-    def forward(self, image):
-        '''
-        image:  B, 3, 256, 256
-        '''
-        x = self.layer1(image) #-> B,32,127,127
-        x = self.layer2(x)  # ->B,64,62,62
-        x = self.layer3(x) #-> B, 128,30,30
-        x = self.layer4(x) #-> B, 256,14,14
-        x = self.layer5(x)  #-> B, 256,6,6
-        non_local = _NonLocalBlock(in_channels=256, dimension=2)
-        z = non_local(x)
-        z = self.average_pool_layer(z, (1,1))
+    def forward(self, x):
 
-        return z
+        '''
+        image:  B, 3, 299, 299
+        '''
+        # N x 3 x 299 x 299
+        x = self.Conv2d_1a_3x3(x)
+        # N x 32 x 149 x 149
+        x = self.Conv2d_2a_3x3(x)
+        # N x 32 x 147 x 147
+        x = self.Conv2d_2b_3x3(x)
+        # N x 64 x 147 x 147
+        x = F.max_pool2d(x, kernel_size=3, stride=2)
+        # N x 64 x 73 x 73
+        x = self.Conv2d_3b_1x1(x)
+        # N x 80 x 73 x 73
+        x = self.Conv2d_4a_3x3(x)
+        # N x 192 x 71 x 71
+        x = F.max_pool2d(x, kernel_size=3, stride=2)
+        # N x 192 x 35 x 35
+        x = self.Mixed_5b(x)
+        # N x 256 x 35 x 35
+        x = self.Mixed_5c(x)
+        # N x 288 x 35 x 35
+        x = self.Mixed_5d(x)
+        # N x 288 x 35 x 35
+        x = self.Mixed_6a(x)
+        # N x 768 x 17 x 17
+        x = self.Mixed_6b(x)
+        # N x 768 x 17 x 17
+        x = self.Mixed_6c(x)
+        # N x 768 x 17 x 17
+        x = self.Mixed_6d(x)
+        # N x 768 x 17 x 17
+        x = self.Mixed_6e(x)
+        # N x 768 x 17 x 17
+        x = self.Mixed_7a(x)
+        # N x 1280 x 8 x 8
+        x = self.Mixed_7b(x)
+        # N x 2048 x 8 x 8
+        x = self.Mixed_7c(x)
+        x = _NonLocalBlock(in_channels=2048, dimension=2)(x)
+        # N x 2048 x 8 x 8
+        # Adaptive average pooling
+        #x = self.average_pool_layer(x, (1, 1))
+        # N x 2048 x 1 x 1
+        #x = F.dropout(x, training=self.training)
+
+        return x
 
 class FusionStream(nn.Module):
     def __init__(self):
@@ -253,32 +324,134 @@ class FusionStream(nn.Module):
 
         return y
 
+class ConvBNReLU(nn.Module):
+    def __init__(self, in_chan, out_chan, ks=3, stride=1, padding=1, *args, **kwargs):
+        super(ConvBNReLU, self).__init__()
+        self.conv = nn.Conv2d(in_chan,
+                out_chan,
+                kernel_size = ks,
+                stride = stride,
+                padding = padding,
+                bias = False)
+        self.bn = nn.BatchNorm2d(out_chan)
+        self.init_weight()
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = F.relu(self.bn(x))
+        return x
+
+    def init_weight(self):
+        for ly in self.children():
+            if isinstance(ly, nn.Conv2d):
+                nn.init.kaiming_normal_(ly.weight, a=1)
+                if not ly.bias is None: nn.init.constant_(ly.bias, 0)
+
+class FeatureFusionModule(nn.Module):
+    def __init__(self, in_chan, out_chan, *args, **kwargs):
+        super(FeatureFusionModule, self).__init__()
+        self.convblk = ConvBNReLU(in_chan, out_chan, ks=1, stride=1, padding=0)
+        self.conv1 = nn.Conv2d(out_chan,
+                out_chan//4,
+                kernel_size = 1,
+                stride = 1,
+                padding = 0,
+                bias = False)
+        self.conv2 = nn.Conv2d(out_chan//4,
+                out_chan,
+                kernel_size = 1,
+                stride = 1,
+                padding = 0,
+                bias = False)
+        self.relu = nn.ReLU(inplace=True)
+        self.sigmoid = nn.Sigmoid()
+        self.init_weight()
+
+    def forward(self, fsp, fcp):
+        fcat = torch.cat([fsp, fcp], dim=1)
+        feat = self.convblk(fcat)
+        atten = F.avg_pool2d(feat, feat.size()[2:])
+        atten = self.conv1(atten)
+        atten = self.relu(atten)
+        atten = self.conv2(atten)
+        atten = self.sigmoid(atten)
+        feat_atten = torch.mul(feat, atten)
+        feat_out = feat_atten + feat
+        return feat_out
+
+    def init_weight(self):
+        for ly in self.children():
+            if isinstance(ly, nn.Conv2d):
+                nn.init.kaiming_normal_(ly.weight, a=1)
+                if not ly.bias is None: nn.init.constant_(ly.bias, 0)
+
+    def get_params(self):
+        wd_params, nowd_params = [], []
+        for name, module in self.named_modules():
+            if isinstance(module, nn.Linear) or isinstance(module, nn.Conv2d):
+                wd_params.append(module.weight)
+                if not module.bias is None:
+                    nowd_params.append(module.bias)
+            elif isinstance(module, nn.BatchNorm2d):
+                nowd_params += list(module.parameters())
+        return wd_params, nowd_params
+
 class emotic_attention_model(nn.Module):
-    def __init__(self):
+    def __init__(self, num_classes = 26):
         super(emotic_attention_model, self).__init__()
         self.bodystream = BodyStream()
         self.contextstream = ContextStream()
-        self.fusionstream = FusionStream()
+        self.ffm = FeatureFusionModule(in_chan=4096, out_chan=4096)
+        self.layer1 = nn.Sequential(
+                nn.Conv2d(in_channels=4096, out_channels=2048, kernel_size=1),
+                nn.ReLU(),
+                nn.Dropout(0.5)
+            )
+        self.layer2 = nn.Sequential(
+                nn.Conv2d(in_channels=2048, out_channels=1024, kernel_size=1),
+                nn.ReLU(),
+                nn.Dropout(0.5)
+            )
+        self.layer3 = nn.Sequential(
+                nn.Conv2d(in_channels=1024, out_channels=256, kernel_size=1),
+                nn.ReLU(),
+                nn.Dropout(0.5)
+            )
+        self.fc = nn.Linear(256, num_classes)
+
+
     
     def forward(self, body , context):
         bodyfeature = self.bodystream(body)
         contextfeature = self.contextstream(context)
 
-        y = self.fusionstream(bodyfeature, contextfeature)
+        y = self.ffm(bodyfeature, contextfeature) # N,4096,8,8
+        y = F.adaptive_avg_pool2d(y, (1,1))  # N, 4096, 1,1
+        y = F.dropout(y, training=self.training)
+
+        y = self.layer1(y)
+        y = self.layer2(y)
+        y = self.layer3(y) # N, 256, 1,1
+
+        y = torch.flatten(y, 1) # N, 256
+        y = self.fc(y)
+        #y = F.softmax(y)
+
         return y
         
 
 
 
-        
-
 if __name__ == "__main__":
-    body = torch.rand(1, 3, 256, 256)
-    context = torch.rand(1, 3, 256, 256)
+    body = torch.rand(1, 3, 256, 256).cuda()
+    context = torch.rand(1, 3, 256, 256).cuda()
 
-    model = emotic_attention_model()
+    model = emotic_attention_model().cuda()
     out = model(body, context)
     print(out)
+
+    pass
+
     
 
 
